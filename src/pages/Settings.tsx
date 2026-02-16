@@ -1,22 +1,12 @@
 import { useState } from 'react';
-import { useMyName, useFriends, useAllEvents } from '../hooks';
+import { useFriends, useAllEvents } from '../hooks';
 import { addFriend, removeFriend, db } from '../db';
 import { encodeEvents } from '../sharing';
 
 export function Settings() {
-  const { name, updateName } = useMyName();
   const { friends, reload: reloadFriends } = useFriends();
   const { events } = useAllEvents();
-  const [editName, setEditName] = useState(false);
-  const [newName, setNewName] = useState(name ?? '');
   const [newFriend, setNewFriend] = useState('');
-
-  const handleSaveName = async () => {
-    if (newName.trim()) {
-      await updateName(newName.trim());
-      setEditName(false);
-    }
-  };
 
   const handleAddFriend = async () => {
     if (newFriend.trim()) {
@@ -79,49 +69,24 @@ export function Settings() {
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
       <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">Your Name</h2>
-        {editName ? (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              className="flex-1 px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white focus:outline-none focus:border-indigo-500"
-              autoFocus
-              onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); }}
-            />
-            <button onClick={handleSaveName} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors">
-              Save
-            </button>
-          </div>
+        <h2 className="text-lg font-semibold mb-3">Friends</h2>
+        {friends.length === 0 ? (
+          <p className="text-slate-400 text-sm mb-3">No friends added yet. They'll appear here as you record loans.</p>
         ) : (
-          <div className="flex items-center justify-between bg-slate-800 rounded-lg p-3">
-            <span>{name}</span>
-            <button
-              onClick={() => { setNewName(name ?? ''); setEditName(true); }}
-              className="text-sm text-indigo-400 hover:text-indigo-300"
-            >
-              Edit
-            </button>
+          <div className="space-y-2 mb-3">
+            {friends.map(f => (
+              <div key={f} className="flex items-center justify-between bg-slate-800 rounded-lg p-3">
+                <span>{f}</span>
+                <button
+                  onClick={() => handleRemoveFriend(f)}
+                  className="text-sm text-red-400 hover:text-red-300"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
           </div>
         )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">Friends</h2>
-        <div className="space-y-2 mb-3">
-          {friends.filter(f => f !== name).map(f => (
-            <div key={f} className="flex items-center justify-between bg-slate-800 rounded-lg p-3">
-              <span>{f}</span>
-              <button
-                onClick={() => handleRemoveFriend(f)}
-                className="text-sm text-red-400 hover:text-red-300"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
         <div className="flex gap-2">
           <input
             type="text"

@@ -1,43 +1,46 @@
-import { useState } from 'react';
-import { useMyName, useFriends } from '../hooks';
-import { generateEventId, addEvent, addFriend, type LendingEvent } from '../db';
+import { useState, useEffect } from 'react';
+import { useFriends } from '../hooks';
+import { generateEventId, addEvent, addFriend, type LendingEvent, db } from '../db';
 import { encodeEvents } from '../sharing';
 import { CardAutocomplete } from '../components/CardAutocomplete';
 import { ShareModal } from '../components/ShareModal';
 
 export function LendCard() {
-  const { name: myName, updateName } = useMyName();
   const { friends, reload: reloadFriends } = useFriends();
-  const [yourName, setYourName] = useState(myName ?? '');
+  const [lender, setLender] = useState('');
+  const [borrower, setBorrower] = useState('');
+  const [customLender, setCustomLender] = useState('');
+  const [customBorrower, setCustomBorrower] = useState('');
   const [cardName, setCardName] = useState('');
-  const [otherPerson, setOtherPerson] = useState('');
-  const [customOther, setCustomOther] = useState('');
   const [note, setNote] = useState('');
   const [shareCode, setShareCode] = useState<string | null>(null);
-  const [direction, setDirection] = useState<'lend' | 'borrow'>('lend');
 
-  const otherFriends = friends.filter(f => f.toLowerCase() !== yourName.toLowerCase());
-  const effectiveOther = (otherPerson && otherPerson !== '__custom__') ? otherPerson : customOther.trim();
+  // Pre-fill last used lender name
+  useEffect(() => {
+    db.settings.get('lastLender').then(s => {
+      if (s?.value) setLender(s.value);
+    });
+  }, []);
+
+  const effectiveLender = (lender && lender !== '__custom__') ? lender : customLender.trim();
+  const effectiveBorrower = (borrower && borrower !== '__custom__') ? borrower : customBorrower.trim();
 
   const handleSubmit = async () => {
-    if (!cardName || !effectiveOther || !yourName.trim()) return;
+    if (!cardName || !effectiveLender || !effectiveBorrower) return;
 
-    const you = yourName.trim();
+    // Remember lender for next time
+    await db.settings.put({ key: 'lastLender', value: effectiveLender });
 
-    // Remember name for next time
-    if (!myName || myName.toLowerCase() !== you.toLowerCase()) {
-      await updateName(you);
-    }
-
-    const lenderName = direction === 'lend' ? you : effectiveOther;
-    const borrowerName = direction === 'lend' ? effectiveOther : you;
+    // Save both as friends for quick-select
+    await addFriend(effectiveLender);
+    await addFriend(effectiveBorrower);
 
     const timestamp = Date.now();
     const partial = {
       type: 'lend' as const,
       cardName,
-      lenderName,
-      borrowerName,
+      lenderName: effectiveLender,
+      borrowerName: effectiveBorrower,
       timestamp,
       note: note || undefined,
     };
@@ -45,91 +48,85 @@ export function LendCard() {
     const event: LendingEvent = { ...partial, id };
     await addEvent(event);
 
-    // Save the other person as a friend
-    await addFriend(effectiveOther);
     reloadFriends();
-
     setShareCode(encodeEvents([event]));
     setCardName('');
-    setOtherPerson('');
-    setCustomOther('');
+    setBorrower('');
+    setCustomBorrower('');
     setNote('');
+  };
+
+  const renderNamePicker = (
+    label: string,
+    value: string,
+    setValue: (v: string) => void,
+    customValue: string,
+    setCustomValue: (v: string) => void,
+    excludeName: string,
+    placeholder: string,
+  ) => {
+    const options = friends.filter(f => f.toLowerCase() !== excludeName.toLowerCase());
+    return (
+      <div>
+        <label className="block text-sm text-slate-300 mb-1">{label}</label>
+        {options.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {options.map(f => (
+              <button
+                key={f}
+                onClick={() => { setValue(f); setCustomValue(''); }}
+                className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  value === f ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+            <button
+              onClick={() => setValue('__custom__')}
+              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                value === '__custom__' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              + New
+            </button>
+          </div>
+        )}
+        {(!value || value === '__custom__') && (
+          <input
+            type="text"
+            value={customValue}
+            onChange={e => { setCustomValue(e.target.value); setValue('__custom__'); }}
+            placeholder={placeholder}
+            className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+          />
+        )}
+      </div>
+    );
   };
 
   return (
     <div className="p-4 pb-20">
       <h1 className="text-2xl font-bold mb-6">Record a Loan</h1>
 
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setDirection('lend')}
-          className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${
-            direction === 'lend' ? 'bg-indigo-600' : 'bg-slate-700 text-slate-400'
-          }`}
-        >
-          I'm Lending
-        </button>
-        <button
-          onClick={() => setDirection('borrow')}
-          className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${
-            direction === 'borrow' ? 'bg-amber-600' : 'bg-slate-700 text-slate-400'
-          }`}
-        >
-          I'm Borrowing
-        </button>
-      </div>
-
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm text-slate-300 mb-1">Your name</label>
-          <input
-            type="text"
-            value={yourName}
-            onChange={e => setYourName(e.target.value)}
-            placeholder="Enter your name"
-            className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-          />
-        </div>
+        {renderNamePicker(
+          'Lender (who owns the card)',
+          lender, setLender,
+          customLender, setCustomLender,
+          effectiveBorrower,
+          'Enter lender name',
+        )}
 
         <CardAutocomplete value={cardName} onChange={setCardName} />
 
-        <div>
-          <label className="block text-sm text-slate-300 mb-1">
-            {direction === 'lend' ? 'Lending to' : 'Borrowing from'}
-          </label>
-          {otherFriends.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {otherFriends.map(f => (
-                <button
-                  key={f}
-                  onClick={() => { setOtherPerson(f); setCustomOther(''); }}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                    otherPerson === f ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-              <button
-                onClick={() => setOtherPerson('__custom__')}
-                className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  otherPerson === '__custom__' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                + New
-              </button>
-            </div>
-          )}
-          {(!otherPerson || otherPerson === '__custom__') && (
-            <input
-              type="text"
-              value={customOther}
-              onChange={e => { setCustomOther(e.target.value); setOtherPerson('__custom__'); }}
-              placeholder="Enter their name"
-              className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-            />
-          )}
-        </div>
+        {renderNamePicker(
+          'Borrower (who is receiving the card)',
+          borrower, setBorrower,
+          customBorrower, setCustomBorrower,
+          effectiveLender,
+          'Enter borrower name',
+        )}
 
         <div>
           <label className="block text-sm text-slate-300 mb-1">Note (optional)</label>
@@ -144,7 +141,7 @@ export function LendCard() {
 
         <button
           onClick={handleSubmit}
-          disabled={!cardName || !effectiveOther || !yourName.trim()}
+          disabled={!cardName || !effectiveLender || !effectiveBorrower}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:text-slate-400 rounded-lg font-semibold transition-colors text-lg"
         >
           Record Loan
