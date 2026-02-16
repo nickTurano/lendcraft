@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { decodeEvents } from '../sharing';
-import { addEvent } from '../db';
+import { addImportedEvent } from '../db';
 
 export function Import() {
   const [code, setCode] = useState('');
@@ -14,7 +14,7 @@ export function Import() {
       const events = decodeEvents(input.trim());
       let added = 0;
       for (const event of events) {
-        const wasAdded = await addEvent(event);
+        const wasAdded = await addImportedEvent(event);
         if (wasAdded) added++;
       }
       const dupes = events.length - added;
