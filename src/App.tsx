@@ -25,7 +25,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex flex-col h-full max-w-lg mx-auto">
+      <div className="flex flex-col h-dvh">
         <main className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
