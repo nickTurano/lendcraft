@@ -6,24 +6,31 @@ import { CardAutocomplete } from '../components/CardAutocomplete';
 import { ShareModal } from '../components/ShareModal';
 
 export function LendCard() {
-  const { name: myName } = useMyName();
+  const { name: myName, updateName } = useMyName();
   const { friends, reload: reloadFriends } = useFriends();
+  const [yourName, setYourName] = useState(myName ?? '');
   const [cardName, setCardName] = useState('');
-  const [borrower, setBorrower] = useState('');
-  const [customBorrower, setCustomBorrower] = useState('');
+  const [otherPerson, setOtherPerson] = useState('');
+  const [customOther, setCustomOther] = useState('');
   const [note, setNote] = useState('');
   const [shareCode, setShareCode] = useState<string | null>(null);
   const [direction, setDirection] = useState<'lend' | 'borrow'>('lend');
 
-  const otherFriends = friends.filter(f => f !== myName);
-
-  const effectiveBorrower = (borrower && borrower !== '__custom__') ? borrower : customBorrower.trim();
+  const otherFriends = friends.filter(f => f.toLowerCase() !== yourName.toLowerCase());
+  const effectiveOther = (otherPerson && otherPerson !== '__custom__') ? otherPerson : customOther.trim();
 
   const handleSubmit = async () => {
-    if (!cardName || !effectiveBorrower || !myName) return;
+    if (!cardName || !effectiveOther || !yourName.trim()) return;
 
-    const lenderName = direction === 'lend' ? myName : effectiveBorrower;
-    const borrowerName = direction === 'lend' ? effectiveBorrower : myName;
+    const you = yourName.trim();
+
+    // Remember name for next time
+    if (!myName || myName.toLowerCase() !== you.toLowerCase()) {
+      await updateName(you);
+    }
+
+    const lenderName = direction === 'lend' ? you : effectiveOther;
+    const borrowerName = direction === 'lend' ? effectiveOther : you;
 
     const timestamp = Date.now();
     const partial = {
@@ -34,19 +41,18 @@ export function LendCard() {
       timestamp,
       note: note || undefined,
     };
-    const id = await generateEventId(partial);
+    const id = generateEventId(partial);
     const event: LendingEvent = { ...partial, id };
     await addEvent(event);
 
-    if (borrower === '__custom__' && customBorrower.trim()) {
-      await addFriend(customBorrower.trim());
-      reloadFriends();
-    }
+    // Save the other person as a friend
+    await addFriend(effectiveOther);
+    reloadFriends();
 
     setShareCode(encodeEvents([event]));
     setCardName('');
-    setBorrower('');
-    setCustomBorrower('');
+    setOtherPerson('');
+    setCustomOther('');
     setNote('');
   };
 
@@ -74,6 +80,17 @@ export function LendCard() {
       </div>
 
       <div className="space-y-4">
+        <div>
+          <label className="block text-sm text-slate-300 mb-1">Your name</label>
+          <input
+            type="text"
+            value={yourName}
+            onChange={e => setYourName(e.target.value)}
+            placeholder="Enter your name"
+            className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
         <CardAutocomplete value={cardName} onChange={setCardName} />
 
         <div>
@@ -85,30 +102,30 @@ export function LendCard() {
               {otherFriends.map(f => (
                 <button
                   key={f}
-                  onClick={() => { setBorrower(f); setCustomBorrower(''); }}
+                  onClick={() => { setOtherPerson(f); setCustomOther(''); }}
                   className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                    borrower === f ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    otherPerson === f ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                   }`}
                 >
                   {f}
                 </button>
               ))}
               <button
-                onClick={() => setBorrower('__custom__')}
+                onClick={() => setOtherPerson('__custom__')}
                 className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  borrower === '__custom__' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  otherPerson === '__custom__' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
                 + New
               </button>
             </div>
           )}
-          {(!borrower || borrower === '__custom__') && (
+          {(!otherPerson || otherPerson === '__custom__') && (
             <input
               type="text"
-              value={customBorrower}
-              onChange={e => { setCustomBorrower(e.target.value); setBorrower('__custom__'); }}
-              placeholder="Enter friend's name"
+              value={customOther}
+              onChange={e => { setCustomOther(e.target.value); setOtherPerson('__custom__'); }}
+              placeholder="Enter their name"
               className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
             />
           )}
@@ -127,7 +144,7 @@ export function LendCard() {
 
         <button
           onClick={handleSubmit}
-          disabled={!cardName || !effectiveBorrower}
+          disabled={!cardName || !effectiveOther || !yourName.trim()}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:text-slate-400 rounded-lg font-semibold transition-colors text-lg"
         >
           Record Loan

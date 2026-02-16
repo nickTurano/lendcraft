@@ -1,30 +1,59 @@
 import { useState, useRef, useEffect } from 'react';
 import { decodeEvents } from '../sharing';
-import { addEvent } from '../db';
+import { addEvent, getMyName, setMyName } from '../db';
+import type { LendingEvent } from '../db';
 
 export function Import() {
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [identityPrompt, setIdentityPrompt] = useState<{ names: string[]; events: LendingEvent[] } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<any>(null);
+
+  const importEvents = async (events: LendingEvent[]) => {
+    let added = 0;
+    for (const event of events) {
+      const wasAdded = await addEvent(event);
+      if (wasAdded) added++;
+    }
+    const dupes = events.length - added;
+    let message = `Imported ${added} event${added !== 1 ? 's' : ''}`;
+    if (dupes > 0) message += ` (${dupes} duplicate${dupes !== 1 ? 's' : ''} skipped)`;
+    setStatus({ type: 'success', message });
+  };
 
   const handleImport = async (input: string) => {
     try {
       const events = decodeEvents(input.trim());
-      let added = 0;
-      for (const event of events) {
-        const wasAdded = await addEvent(event);
-        if (wasAdded) added++;
+      const myName = await getMyName();
+
+      // Get unique names from events
+      const names = [...new Set(events.flatMap(e => [e.lenderName, e.borrowerName]))];
+
+      // If user has no name set and there are names to pick from, ask who they are
+      if (!myName && names.length > 0) {
+        // Check if there are exactly 2 people — common case
+        const nameMatch = myName ? names.some(n => n.toLowerCase() === myName.toLowerCase()) : false;
+        if (!nameMatch) {
+          setIdentityPrompt({ names, events });
+          setCode('');
+          return;
+        }
       }
-      const dupes = events.length - added;
-      let message = `Imported ${added} event${added !== 1 ? 's' : ''}`;
-      if (dupes > 0) message += ` (${dupes} duplicate${dupes !== 1 ? 's' : ''} skipped)`;
-      setStatus({ type: 'success', message });
+
+      await importEvents(events);
       setCode('');
     } catch {
       setStatus({ type: 'error', message: 'Invalid share code. Check the code and try again.' });
     }
+  };
+
+  const handleIdentityChoice = async (chosenName: string) => {
+    if (!identityPrompt) return;
+    await setMyName(chosenName);
+    await importEvents(identityPrompt.events);
+    setIdentityPrompt(null);
   };
 
   const startScanner = async () => {
@@ -75,6 +104,24 @@ export function Import() {
           status.type === 'success' ? 'bg-green-900/50 text-green-300 border border-green-700' : 'bg-red-900/50 text-red-300 border border-red-700'
         }`}>
           {status.message}
+        </div>
+      )}
+
+      {identityPrompt && (
+        <div className="bg-slate-800 rounded-xl p-4 mb-6 border border-slate-600">
+          <p className="font-semibold mb-1">Which one are you?</p>
+          <p className="text-sm text-slate-400 mb-4">We need to know so your dashboard shows the right cards.</p>
+          <div className="space-y-2">
+            {identityPrompt.names.map(n => (
+              <button
+                key={n}
+                onClick={() => handleIdentityChoice(n)}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors"
+              >
+                I'm {n}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

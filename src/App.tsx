@@ -1,6 +1,4 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useMyName } from './hooks';
-import { NameSetup } from './components/NameSetup';
 import { NavBar } from './components/NavBar';
 import { Dashboard } from './pages/Dashboard';
 import { LendCard } from './pages/LendCard';
@@ -9,20 +7,6 @@ import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 
 function App() {
-  const { name, loading, updateName } = useMyName();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!name) {
-    return <NameSetup onSave={updateName} />;
-  }
-
   return (
     <BrowserRouter>
       <div className="min-h-screen max-w-lg mx-auto">

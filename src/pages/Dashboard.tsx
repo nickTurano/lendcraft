@@ -4,15 +4,17 @@ import { generateEventId, addEvent, type LendingEvent } from '../db';
 import { encodeEvents } from '../sharing';
 import { getCardImageUrl } from '../scryfall';
 import { ShareModal } from '../components/ShareModal';
+import { useNavigate } from 'react-router-dom';
 
 export function Dashboard() {
   const { name } = useMyName();
   const { loans, reload } = useActiveLoans();
   const [shareCode, setShareCode] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const nameLC = name?.toLowerCase();
-  const lentOut = loans.filter(l => l.event.lenderName.toLowerCase() === nameLC);
-  const borrowing = loans.filter(l => l.event.borrowerName.toLowerCase() === nameLC);
+  const lentOut = nameLC ? loans.filter(l => l.event.lenderName.toLowerCase() === nameLC) : [];
+  const borrowing = nameLC ? loans.filter(l => l.event.borrowerName.toLowerCase() === nameLC) : [];
 
   const handleReturn = useCallback(async (lendEvent: LendingEvent) => {
     const timestamp = Date.now();
@@ -26,12 +28,35 @@ export function Dashboard() {
       timestamp,
       returnOfEventId: lendEvent.id,
     };
-    const id = await generateEventId(partial);
+    const id = generateEventId(partial);
     const event: LendingEvent = { ...partial, id };
     await addEvent(event);
     setShareCode(encodeEvents([event]));
     reload();
   }, [reload]);
+
+  if (!name) {
+    return (
+      <div className="p-4 pb-20">
+        <h1 className="text-2xl font-bold mb-4">Lendcraft</h1>
+        <p className="text-slate-400 mb-6">Track MTG card loans between friends. No accounts needed.</p>
+        <div className="space-y-3">
+          <button
+            onClick={() => navigate('/lend')}
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold transition-colors text-lg"
+          >
+            Record a Loan
+          </button>
+          <button
+            onClick={() => navigate('/import')}
+            className="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-semibold transition-colors text-lg"
+          >
+            Import a Share Code
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 pb-20">
@@ -55,7 +80,7 @@ export function Dashboard() {
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{event.cardName}</p>
-                  <p className="text-sm text-slate-400">→ {event.borrowerName}</p>
+                  <p className="text-sm text-slate-400">&rarr; {event.borrowerName}</p>
                   <p className="text-xs text-slate-500">{new Date(event.timestamp).toLocaleDateString()}</p>
                 </div>
               </div>
@@ -82,7 +107,7 @@ export function Dashboard() {
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{event.cardName}</p>
-                  <p className="text-sm text-slate-400">← {event.lenderName}</p>
+                  <p className="text-sm text-slate-400">&larr; {event.lenderName}</p>
                   <p className="text-xs text-slate-500">{new Date(event.timestamp).toLocaleDateString()}</p>
                 </div>
                 <button
@@ -96,16 +121,6 @@ export function Dashboard() {
           </div>
         )}
       </section>
-
-      {loans.length > 0 && lentOut.length === 0 && borrowing.length === 0 && (
-        <section className="mt-6">
-          <p className="text-slate-500 text-sm">
-            {loans.length} active loan{loans.length !== 1 ? 's' : ''} found but none match your name "{name}".
-            Names in events: {[...new Set(loans.flatMap(l => [l.event.lenderName, l.event.borrowerName]))].join(', ')}.
-            Check Settings if your name needs to match.
-          </p>
-        </section>
-      )}
 
       {shareCode && <ShareModal code={shareCode} onClose={() => setShareCode(null)} />}
     </div>
