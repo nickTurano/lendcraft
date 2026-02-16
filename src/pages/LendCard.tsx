@@ -9,7 +9,7 @@ import { getCardImageUrl } from '../scryfall';
 export function LendCard() {
   const { name: myName } = useMyName();
   const { friends, reload: reloadFriends } = useFriends();
-  const [cards, setCards] = useState<string[]>([]);
+  const [cards, setCards] = useState<{ name: string; qty: number }[]>([]);
   const [borrower, setBorrower] = useState('');
   const [customBorrower, setCustomBorrower] = useState('');
   const [note, setNote] = useState('');
@@ -18,31 +18,45 @@ export function LendCard() {
   const effectiveBorrower = (borrower && borrower !== '__custom__') ? borrower : customBorrower.trim();
 
   const addCard = (name: string) => {
-    if (name && !cards.includes(name)) {
-      setCards(prev => [...prev, name]);
-    }
+    if (!name) return;
+    setCards(prev => {
+      const existing = prev.find(c => c.name === name);
+      if (existing) return prev.map(c => c.name === name ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, { name, qty: 1 }];
+    });
   };
 
   const removeCard = (name: string) => {
-    setCards(prev => prev.filter(c => c !== name));
+    setCards(prev => prev.filter(c => c.name !== name));
   };
+
+  const setQty = (name: string, qty: number) => {
+    if (qty < 1) return removeCard(name);
+    setCards(prev => prev.map(c => c.name === name ? { ...c, qty } : c));
+  };
+
+  const totalCards = cards.reduce((sum, c) => sum + c.qty, 0);
 
   const handleSubmit = async () => {
     if (cards.length === 0 || !effectiveBorrower || !myName) return;
 
     const baseTimestamp = Date.now();
-    const events: LendingEvent[] = cards.map((cardName, i) => {
-      const partial = {
-        type: 'lend' as const,
-        cardName,
-        lenderName: myName,
-        borrowerName: effectiveBorrower,
-        timestamp: baseTimestamp + i, // offset for unique IDs
-        note: note || undefined,
-      };
-      const id = generateEventId(partial);
-      return { ...partial, id };
-    });
+    const events: LendingEvent[] = [];
+    let offset = 0;
+    for (const { name: cardName, qty } of cards) {
+      for (let q = 0; q < qty; q++) {
+        const partial = {
+          type: 'lend' as const,
+          cardName,
+          lenderName: myName,
+          borrowerName: effectiveBorrower,
+          timestamp: baseTimestamp + offset++,
+          note: note || undefined,
+        };
+        const id = generateEventId(partial);
+        events.push({ ...partial, id });
+      }
+    }
 
     for (const event of events) {
       await addLocalEvent(event);
@@ -67,7 +81,7 @@ export function LendCard() {
 
         {cards.length > 0 && (
           <div className="space-y-2">
-            {cards.map(name => (
+            {cards.map(({ name, qty }) => (
               <div key={name} className="flex items-center gap-3 bg-slate-700 rounded-lg p-2">
                 <img
                   src={getCardImageUrl(name)}
@@ -77,6 +91,21 @@ export function LendCard() {
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
                 <span className="flex-1 text-sm">{name}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setQty(name, qty - 1)}
+                    className="w-7 h-7 rounded bg-slate-600 hover:bg-slate-500 text-sm font-bold leading-none"
+                  >
+                    &minus;
+                  </button>
+                  <span className="w-6 text-center text-sm">{qty}</span>
+                  <button
+                    onClick={() => setQty(name, qty + 1)}
+                    className="w-7 h-7 rounded bg-slate-600 hover:bg-slate-500 text-sm font-bold leading-none"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   onClick={() => removeCard(name)}
                   className="text-red-400 hover:text-red-300 px-2 py-1 text-lg leading-none"
@@ -141,7 +170,7 @@ export function LendCard() {
           disabled={cards.length === 0 || !effectiveBorrower}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:text-slate-400 rounded-lg font-semibold transition-colors text-lg"
         >
-          {cards.length <= 1 ? 'Lend Card' : `Lend ${cards.length} Cards`}
+          {totalCards <= 1 ? 'Lend Card' : `Lend ${totalCards} Cards`}
         </button>
       </div>
 
