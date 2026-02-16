@@ -25,18 +25,16 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex flex-col h-full">
-        <main className="flex-1 overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/lend" element={<LendCard />} />
-            <Route path="/import" element={<Import />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </main>
-        <NavBar />
+      <div className="pb-16">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/lend" element={<LendCard />} />
+          <Route path="/import" element={<Import />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
       </div>
+      <NavBar />
     </BrowserRouter>
   );
 }

@@ -13,7 +13,7 @@ export function NavBar() {
   const navigate = useNavigate();
 
   return (
-    <nav className="shrink-0 bg-slate-800 border-t border-slate-700 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700">
       <div className="flex justify-around items-center h-14">
         {tabs.map(tab => {
           const active = location.pathname === tab.path;
