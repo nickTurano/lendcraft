@@ -17,7 +17,7 @@ export function LendCard() {
 
   const otherFriends = friends.filter(f => f !== myName);
 
-  const effectiveBorrower = borrower === '__custom__' ? customBorrower.trim() : borrower;
+  const effectiveBorrower = (borrower && borrower !== '__custom__') ? borrower : customBorrower.trim();
 
   const handleSubmit = async () => {
     if (!cardName || !effectiveBorrower || !myName) return;
@@ -103,11 +103,11 @@ export function LendCard() {
               </button>
             </div>
           )}
-          {(borrower === '__custom__' || otherFriends.length === 0) && (
+          {(!borrower || borrower === '__custom__') && (
             <input
               type="text"
               value={customBorrower}
-              onChange={e => { setCustomBorrower(e.target.value); if (borrower !== '__custom__') setBorrower('__custom__'); }}
+              onChange={e => { setCustomBorrower(e.target.value); setBorrower('__custom__'); }}
               placeholder="Enter friend's name"
               className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
             />
