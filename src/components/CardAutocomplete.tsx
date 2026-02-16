@@ -14,6 +14,13 @@ export function CardAutocomplete({ value, onChange }: Props) {
     setQuery('');
   };
 
+  const handleConfirmManual = () => {
+    if (query.trim()) {
+      onChange(query.trim());
+      setQuery('');
+    }
+  };
+
   return (
     <div className="relative">
       <label className="block text-sm text-slate-300 mb-1">Card Name</label>
@@ -24,6 +31,7 @@ export function CardAutocomplete({ value, onChange }: Props) {
             alt={value}
             className="w-16 h-auto rounded"
             loading="lazy"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <div className="flex-1">
             <p className="font-medium">{value}</p>
@@ -37,14 +45,25 @@ export function CardAutocomplete({ value, onChange }: Props) {
         </div>
       ) : (
         <>
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search for a card..."
-            className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-            autoFocus
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleConfirmManual(); }}
+              placeholder="Search for a card..."
+              className="flex-1 px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+              autoFocus
+            />
+            {query.trim() && (
+              <button
+                onClick={handleConfirmManual}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors text-sm shrink-0"
+              >
+                Use
+              </button>
+            )}
+          </div>
           {suggestions.length > 0 && (
             <ul className="absolute z-10 mt-1 w-full bg-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto border border-slate-600">
               {suggestions.map(name => (
@@ -58,6 +77,7 @@ export function CardAutocomplete({ value, onChange }: Props) {
                       alt=""
                       className="w-8 h-auto rounded"
                       loading="lazy"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                     <span>{name}</span>
                   </button>
