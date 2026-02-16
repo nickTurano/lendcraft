@@ -75,7 +75,7 @@ export function Settings() {
   };
 
   return (
-    <div className="p-4 pb-20">
+    <div className="p-4 pb-4">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
       <section className="mb-8">

@@ -43,7 +43,7 @@ export function LendCard() {
   };
 
   return (
-    <div className="p-4 pb-20">
+    <div className="p-4 pb-4">
       <h1 className="text-2xl font-bold mb-6">Lend a Card</h1>
 
       <div className="space-y-4">
