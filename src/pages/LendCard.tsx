@@ -4,11 +4,12 @@ import { generateEventId, addLocalEvent, addFriend, type LendingEvent } from '..
 import { encodeEvents } from '../sharing';
 import { CardAutocomplete } from '../components/CardAutocomplete';
 import { ShareModal } from '../components/ShareModal';
+import { getCardImageUrl } from '../scryfall';
 
 export function LendCard() {
   const { name: myName } = useMyName();
   const { friends, reload: reloadFriends } = useFriends();
-  const [cardName, setCardName] = useState('');
+  const [cards, setCards] = useState<string[]>([]);
   const [borrower, setBorrower] = useState('');
   const [customBorrower, setCustomBorrower] = useState('');
   const [note, setNote] = useState('');
@@ -16,27 +17,42 @@ export function LendCard() {
 
   const effectiveBorrower = (borrower && borrower !== '__custom__') ? borrower : customBorrower.trim();
 
-  const handleSubmit = async () => {
-    if (!cardName || !effectiveBorrower || !myName) return;
+  const addCard = (name: string) => {
+    if (name && !cards.includes(name)) {
+      setCards(prev => [...prev, name]);
+    }
+  };
 
-    const timestamp = Date.now();
-    const partial = {
-      type: 'lend' as const,
-      cardName,
-      lenderName: myName,
-      borrowerName: effectiveBorrower,
-      timestamp,
-      note: note || undefined,
-    };
-    const id = generateEventId(partial);
-    const event: LendingEvent = { ...partial, id };
-    await addLocalEvent(event);
+  const removeCard = (name: string) => {
+    setCards(prev => prev.filter(c => c !== name));
+  };
+
+  const handleSubmit = async () => {
+    if (cards.length === 0 || !effectiveBorrower || !myName) return;
+
+    const baseTimestamp = Date.now();
+    const events: LendingEvent[] = cards.map((cardName, i) => {
+      const partial = {
+        type: 'lend' as const,
+        cardName,
+        lenderName: myName,
+        borrowerName: effectiveBorrower,
+        timestamp: baseTimestamp + i, // offset for unique IDs
+        note: note || undefined,
+      };
+      const id = generateEventId(partial);
+      return { ...partial, id };
+    });
+
+    for (const event of events) {
+      await addLocalEvent(event);
+    }
 
     await addFriend(effectiveBorrower);
     reloadFriends();
 
-    setShareCode(encodeEvents([event]));
-    setCardName('');
+    setShareCode(encodeEvents(events));
+    setCards([]);
     setBorrower('');
     setCustomBorrower('');
     setNote('');
@@ -47,7 +63,31 @@ export function LendCard() {
       <h1 className="text-2xl font-bold mb-6">Lend a Card</h1>
 
       <div className="space-y-4">
-        <CardAutocomplete value={cardName} onChange={setCardName} />
+        <CardAutocomplete value="" onChange={addCard} />
+
+        {cards.length > 0 && (
+          <div className="space-y-2">
+            {cards.map(name => (
+              <div key={name} className="flex items-center gap-3 bg-slate-700 rounded-lg p-2">
+                <img
+                  src={getCardImageUrl(name)}
+                  alt={name}
+                  className="w-10 h-auto rounded"
+                  loading="lazy"
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span className="flex-1 text-sm">{name}</span>
+                <button
+                  onClick={() => removeCard(name)}
+                  className="text-red-400 hover:text-red-300 px-2 py-1 text-lg leading-none"
+                  aria-label={`Remove ${name}`}
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-slate-300 mb-1">Lending to</label>
@@ -98,10 +138,10 @@ export function LendCard() {
 
         <button
           onClick={handleSubmit}
-          disabled={!cardName || !effectiveBorrower}
+          disabled={cards.length === 0 || !effectiveBorrower}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:text-slate-400 rounded-lg font-semibold transition-colors text-lg"
         >
-          Lend Card
+          {cards.length <= 1 ? 'Lend Card' : `Lend ${cards.length} Cards`}
         </button>
       </div>
 
