@@ -10,8 +10,9 @@ export function Dashboard() {
   const { loans, reload } = useActiveLoans();
   const [shareCode, setShareCode] = useState<string | null>(null);
 
-  const lentOut = loans.filter(l => l.event.lenderName === name);
-  const borrowing = loans.filter(l => l.event.borrowerName === name);
+  const nameLC = name?.toLowerCase();
+  const lentOut = loans.filter(l => l.event.lenderName.toLowerCase() === nameLC);
+  const borrowing = loans.filter(l => l.event.borrowerName.toLowerCase() === nameLC);
 
   const handleReturn = useCallback(async (lendEvent: LendingEvent) => {
     const timestamp = Date.now();
@@ -95,6 +96,16 @@ export function Dashboard() {
           </div>
         )}
       </section>
+
+      {loans.length > 0 && lentOut.length === 0 && borrowing.length === 0 && (
+        <section className="mt-6">
+          <p className="text-slate-500 text-sm">
+            {loans.length} active loan{loans.length !== 1 ? 's' : ''} found but none match your name "{name}".
+            Names in events: {[...new Set(loans.flatMap(l => [l.event.lenderName, l.event.borrowerName]))].join(', ')}.
+            Check Settings if your name needs to match.
+          </p>
+        </section>
+      )}
 
       {shareCode && <ShareModal code={shareCode} onClose={() => setShareCode(null)} />}
     </div>
