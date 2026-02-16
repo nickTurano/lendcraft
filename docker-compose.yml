@@ -1,0 +1,7 @@
+services:
+  lendcraft:
+    build: .
+    container_name: lendcraft
+    ports:
+      - "8420:80"
+    restart: unless-stopped
