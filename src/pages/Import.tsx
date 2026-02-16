@@ -36,21 +36,25 @@ export function Import() {
     const scanner = new Html5Qrcode('qr-reader');
     scannerRef.current = scanner;
 
+    const scanConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+    const onSuccess = (decodedText: string) => {
+      scanner.stop().then(() => {
+        setScanning(false);
+        handleImport(decodedText);
+      });
+    };
+    const onError = () => {};
+
     try {
-      await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText: string) => {
-          scanner.stop().then(() => {
-            setScanning(false);
-            handleImport(decodedText);
-          });
-        },
-        () => {},
-      );
+      await scanner.start({ facingMode: 'environment' }, scanConfig, onSuccess, onError);
     } catch {
-      setStatus({ type: 'error', message: 'Could not access camera. Try pasting the code instead.' });
-      setScanning(false);
+      // environment camera not available (e.g. desktop) — fall back to any camera
+      try {
+        await scanner.start({ facingMode: 'user' }, scanConfig, onSuccess, onError);
+      } catch {
+        setStatus({ type: 'error', message: 'Could not access camera. Try pasting the code instead.' });
+        setScanning(false);
+      }
     }
   };
 
