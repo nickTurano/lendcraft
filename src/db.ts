@@ -44,12 +44,17 @@ db.version(1).stores({
 
 export { db };
 
-export async function generateEventId(event: Omit<LendingEvent, 'id'>): Promise<string> {
+export function generateEventId(event: Omit<LendingEvent, 'id'>): string {
   const core = `${event.lenderName}|${event.borrowerName}|${event.cardName}|${event.timestamp}|${event.type}`;
-  const encoded = new TextEncoder().encode(core);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  // FNV-1a 64-bit-ish hash (two 32-bit halves) — deterministic, no crypto API needed
+  let h1 = 0x811c9dc5 >>> 0;
+  let h2 = 0x01000193 >>> 0;
+  for (let i = 0; i < core.length; i++) {
+    const c = core.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 0x811c9dc5) >>> 0;
+  }
+  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
 }
 
 export async function getMyName(): Promise<string | null> {
