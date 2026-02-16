@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useAllEvents, useFriends } from '../hooks';
 import { getCardImageUrl } from '../scryfall';
+import { useRegisterRefresh } from '../RefreshContext';
 
 export function History() {
-  const { events } = useAllEvents();
-  const { friends } = useFriends();
+  const { events, reload: reloadEvents } = useAllEvents();
+  const { friends, reload: reloadFriends } = useFriends();
+  useRegisterRefresh(reloadEvents);
+  useRegisterRefresh(reloadFriends);
   const [filter, setFilter] = useState('');
 
   const filtered = filter

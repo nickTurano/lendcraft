@@ -4,6 +4,7 @@ import { generateEventId, addLocalEvent, type LendingEvent } from '../db';
 import { encodeEvents } from '../sharing';
 import { getCardImageUrl } from '../scryfall';
 import { ShareModal } from '../components/ShareModal';
+import { useRegisterRefresh } from '../RefreshContext';
 
 interface LoanGroup {
   key: string;
@@ -39,6 +40,7 @@ function groupLoans(loans: { event: LendingEvent; isLocal: boolean }[], personFi
 
 export function Dashboard() {
   const { loans, reload } = useActiveLoans();
+  useRegisterRefresh(reload);
   const [shareCode, setShareCode] = useState<string | null>(null);
 
   const lentOut = loans.filter(l => l.isLocal);
