@@ -165,6 +165,8 @@ export function Settings() {
           </button>
         </div>
       </section>
+
+      <p className="text-center text-xs text-slate-600 mt-8">Lendcraft v{__APP_VERSION__}</p>
     </div>
   );
 }
